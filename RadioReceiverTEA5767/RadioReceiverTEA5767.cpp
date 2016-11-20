@@ -7,19 +7,16 @@ RadioReceiverTEA5767::RadioReceiverTEA5767()
 }
 
 void RadioReceiverTEA5767::initialize() {
+    unsigned char raw[] = { 0x00, 0x00, 0xb0, 0x10, 0x00 };
     Wire.begin();
-    aw.value = 0x00;
-    bw.value = 0x00;
-    cw.value = 0xb0;
-    dw.value = 0x10;
-    ew.value = 0x00;
-    flush();
     read();
+    setRawConfiguration(raw);
 }
 
 void RadioReceiverTEA5767::setFrequency(long frequency) {
     this->frequency = frequency;
     applyFrequency();
+    autoAjustSideInjection();
 }
 
 long RadioReceiverTEA5767::getFrequency() {
@@ -27,20 +24,20 @@ long RadioReceiverTEA5767::getFrequency() {
 }
 
 void RadioReceiverTEA5767::setStation(float station) {
-    setFrequency(station * RADIO_RECEIVER_TEA5767_STATION_TO_FREQ);
+    setFrequency(stationToFrequency(station));
 }
 
 float RadioReceiverTEA5767::getStation() {
-    return frequency / RADIO_RECEIVER_TEA5767_STATION_TO_FREQ;
+    return frequencyToStation(frequency);
 }
 
 void RadioReceiverTEA5767::setStereo(bool stereo) {
-    cw.MS = stereo;
+    w3rd.MS = stereo;
     flush();
 }
 
 bool RadioReceiverTEA5767::getStereo() {
-    return cw.MS;
+    return w3rd.MS;
 }
 
 void RadioReceiverTEA5767::mute() {
@@ -60,71 +57,135 @@ void RadioReceiverTEA5767::unmute(Side side) {
 }
 
 void RadioReceiverTEA5767::setMute(Side side, bool mute) {
-    if (side & SIDE_LEFT) {
-        cw.ML = mute;
-    }
-    if (side & SIDE_RIGHT) {
-        cw.ML = mute;
+    switch (side) {
+    case SIDE_LEFT:
+        w3rd.ML = mute;
+        break;
+    case SIDE_RIGHT:
+        w3rd.MR = mute;
+        break;
+    case SIDE_BOTH:
+        w1st.MUTE = mute;
+        break;
     }
     flush();
 }
 
 void RadioReceiverTEA5767::setSearchDirection(SerachDirection direction) {
-    cw.SUD = direction;
+    w3rd.SUD = direction;
     flush();
 }
 
 void RadioReceiverTEA5767::setStandby(bool standby) {
-    dw.STBY = standby;
+    w4th.STBY = standby;
     flush();
 }
 
 void RadioReceiverTEA5767::setSearchStopLevel(SearchStopLevel level) {
-    cw.SSL = level;
+    w3rd.SSL = level;
     flush();
 }
 
 RadioReceiverTEA5767::SearchStopLevel RadioReceiverTEA5767::getSearchStopLevel() {
-    return (SearchStopLevel) cw.SSL;
+    return (SearchStopLevel) w3rd.SSL;
 }
 
-void RadioReceiverTEA5767::startSearchMode() {
-    setSearchMode(true);
-}
-
-void RadioReceiverTEA5767::stopSearchMode() {
-    setSearchMode(false);
+unsigned char RadioReceiverTEA5767::getSignalLevel() {
+    read();
+    return r4th.LEV;
 }
 
 void RadioReceiverTEA5767::setSearchMode(bool mode) {
-    aw.SM = mode;
+    w1st.SM = mode;
     flush();
+}
+
+long RadioReceiverTEA5767::searchNextFrequency() {
+    long nextFrequency = 0;
+    long oneGridStep = w3rd.SUD == SD_UP ? RADIO_RECEIVER_TEA5767_ONE_GRID_STEP : -(RADIO_RECEIVER_TEA5767_ONE_GRID_STEP);
+    mute();
+    setFrequency(frequency + oneGridStep);
+    setSearchMode(true);
+    while (!isReady())
+        ;
+    if (!isBandLimitReached()) {
+        nextFrequency = getFoundStationFrequency();
+    }
+    setFrequency(frequency - oneGridStep);
+    unmute();
+    return nextFrequency;
 }
 
 void RadioReceiverTEA5767::setSideInjection(SideInjection level) {
-    cw.HLSI = level;
+    w3rd.HLSI = level;
     flush();
 }
 
+void RadioReceiverTEA5767::autoAjustSideInjection() {
+    unsigned char signal;
+    setSideInjection(SI_LOW);
+    signal = getSignalLevel();
+    setSideInjection(SI_HIGH);
+    if (signal > getSignalLevel()) {
+        setSideInjection(SI_LOW);
+    }
+}
+
+bool RadioReceiverTEA5767::isBandLimitReached() {
+    read();
+    return r1st.BLF;
+}
+
+bool RadioReceiverTEA5767::isReady() {
+    read();
+    return r1st.RF;
+}
+
+float RadioReceiverTEA5767::getFoundStation() {
+    return frequencyToStation(getFoundStationFrequency());
+}
+
+long RadioReceiverTEA5767::getFoundStationFrequency() {
+    unsigned int phaseLockedLoop = 0;
+    phaseLockedLoop = r1st.PLL;
+    phaseLockedLoop <<= 8;
+    phaseLockedLoop |= r2nd.PLL;
+    return phaseLockedLoopToFrequency(phaseLockedLoop);
+}
+
 void RadioReceiverTEA5767::setRawConfiguration(unsigned char *buf) {
-    unsigned char* values[] = { &aw.value, &bw.value, &cw.value, &dw.value, &ew.value };
+    unsigned char* values[] = { &w1st.value, &w2nd.value, &w3rd.value, &w4th.value, &w5th.value };
     for (unsigned char i = 0; i < RADIO_RECEIVER_TEA5767_BYTES_COUNT; i++) {
         *values[i] = buf[i];
     }
     flush();
 }
 
+long RadioReceiverTEA5767::stationToFrequency(float station) {
+    return station * RADIO_RECEIVER_TEA5767_STATION_TO_FREQ;
+}
+
+float RadioReceiverTEA5767::frequencyToStation(long frequency) {
+    return frequency / RADIO_RECEIVER_TEA5767_STATION_TO_FREQ;
+}
+
+long RadioReceiverTEA5767::phaseLockedLoopToFrequency(unsigned int phaseLockedLoop) {
+    return (phaseLockedLoop * RADIO_RECEIVER_TEA5767_REF_FREQ) / 4 - RADIO_RECEIVER_TEA5767_INT_FREQ;
+}
+
+unsigned int RadioReceiverTEA5767::frequencyToPhaseLockedLoop(long frequency) {
+    return 4 * (frequency + RADIO_RECEIVER_TEA5767_INT_FREQ) / RADIO_RECEIVER_TEA5767_REF_FREQ;
+}
+
 void RadioReceiverTEA5767::applyFrequency() {
-    long pll = 4 * (frequency + RADIO_RECEIVER_TEA5767_INT_FREQ) / RADIO_RECEIVER_TEA5767_REF_FREQ;
-    aw.PLL = (pll >> 8) & 0x3f;
-    Serial.println(aw.PLL, HEX);
-    bw.PLL = pll & 0xff;
-    Serial.println(bw.PLL, HEX);
+    unsigned int phaseLockedLoop = frequencyToPhaseLockedLoop(frequency);
+    w1st.PLL = (phaseLockedLoop >> 8) & 0x3f;
+    w2nd.PLL = phaseLockedLoop & 0xff;
     flush();
 }
 
 void RadioReceiverTEA5767::read() {
-    unsigned char* input[] = { &ar.value, &br.value, &cr.value, &dr.value, &er.value };
+    unsigned char* input[] = { &r1st.value, &r2nd.value, &r3rd.value, &r4th.value, &r5th.value };
     Wire.requestFrom(RADIO_RECEIVER_TEA5767_I2C_ADDRESS, RADIO_RECEIVER_TEA5767_BYTES_COUNT);
     if (Wire.available()) {
         for (unsigned char i = 0; i < RADIO_RECEIVER_TEA5767_BYTES_COUNT; i++) {
@@ -135,11 +196,9 @@ void RadioReceiverTEA5767::read() {
 }
 
 void RadioReceiverTEA5767::flush() {
-    Serial.println("send");
-    unsigned char output[] = { aw.value, bw.value, cw.value, dw.value, ew.value };
+    unsigned char output[] = { w1st.value, w2nd.value, w3rd.value, w4th.value, w5th.value };
     Wire.beginTransmission(RADIO_RECEIVER_TEA5767_I2C_ADDRESS);
     for (unsigned char i = 0; i < RADIO_RECEIVER_TEA5767_BYTES_COUNT; i++) {
-        Serial.println(output[i], HEX);
         Wire.write(output[i]);
     }
     Wire.endTransmission();

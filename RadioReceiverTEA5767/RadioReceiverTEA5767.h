@@ -14,10 +14,11 @@
 #define RADIO_RECEIVER_TEA5767_INT_FREQ         225000
 #define RADIO_RECEIVER_TEA5767_BYTES_COUNT      5
 #define RADIO_RECEIVER_TEA5767_STATION_TO_FREQ  1000000.0
+#define RADIO_RECEIVER_TEA5767_ONE_GRID_STEP    RADIO_RECEIVER_TEA5767_STATION_TO_FREQ * 0.1
 
 class RadioReceiverTEA5767: public RadioReceiver {
 
-    union AWriteBits {
+    union Write1stBits {
 
         struct {
 
@@ -33,7 +34,7 @@ class RadioReceiverTEA5767: public RadioReceiver {
         unsigned char value;
     };
 
-    union BWriteBits {
+    union Write2ndBits {
 
         struct {
 
@@ -43,7 +44,7 @@ class RadioReceiverTEA5767: public RadioReceiver {
         unsigned char value;
     };
 
-    union CWriteBits {
+    union Write3rdBits {
 
         struct {
 
@@ -71,7 +72,7 @@ class RadioReceiverTEA5767: public RadioReceiver {
         unsigned char value;
     };
 
-    union DWriteBits {
+    union Write4thBits {
 
         struct {
 
@@ -102,7 +103,7 @@ class RadioReceiverTEA5767: public RadioReceiver {
         unsigned char value;
     };
 
-    union EWriteBits {
+    union Write5thBits {
 
         struct {
 
@@ -119,12 +120,12 @@ class RadioReceiverTEA5767: public RadioReceiver {
         unsigned char value;
     };
 
-    union AReadBits {
+    union Read1stBits {
 
         struct {
 
             // PLL[13:8] setting of synthesizer programmable counter after search or preset.
-            unsigned char PLL :5;
+            unsigned char PLL :6;
 
             // Band Limit Flag: if BLF = 1 then the band limit has been reached; if BLF = 0 then the band limit has not been reached.
             unsigned char BLF :1;
@@ -135,7 +136,7 @@ class RadioReceiverTEA5767: public RadioReceiver {
         unsigned char value;
     };
 
-    union BReadBits {
+    union Read2ndBits {
 
         struct {
 
@@ -145,7 +146,7 @@ class RadioReceiverTEA5767: public RadioReceiver {
         unsigned char value;
     };
 
-    union CReadBits {
+    union Read3rdBits {
 
         struct {
 
@@ -158,7 +159,7 @@ class RadioReceiverTEA5767: public RadioReceiver {
         unsigned char value;
     };
 
-    union DReadBits {
+    union Read4thBits {
 
         struct {
 
@@ -174,7 +175,7 @@ class RadioReceiverTEA5767: public RadioReceiver {
         unsigned char value;
     };
 
-    union EReadBits {
+    union Read5thBits {
 
         struct {
 
@@ -186,35 +187,18 @@ class RadioReceiverTEA5767: public RadioReceiver {
 
     long frequency;
 
-    AWriteBits aw;
-    BWriteBits bw;
-    CWriteBits cw;
-    DWriteBits dw;
-    EWriteBits ew;
+    Write1stBits w1st;
+    Write2ndBits w2nd;
+    Write3rdBits w3rd;
+    Write4thBits w4th;
+    Write5thBits w5th;
 
-    AReadBits ar;
-    BReadBits br;
-    CReadBits cr;
-    DReadBits dr;
-    EReadBits er;
+    Read1stBits r1st;
+    Read2ndBits r2nd;
+    Read3rdBits r3rd;
+    Read4thBits r4th;
+    Read5thBits r5th;
 public:
-
-    enum SideInjection {
-        SI_LOW,
-        SI_HIGH
-    };
-
-    enum SearchStopLevel {
-
-        // level ADC output = 5
-        SSL_LOW = 0x01,
-
-        // level ADC output = 7
-        SSL_MID = 0x02,
-
-        // level ADC output = 10
-        SSL_HIGH = 0x03
-    };
 
     RadioReceiverTEA5767();
 
@@ -244,23 +228,56 @@ public:
 
     void setSearchDirection(SerachDirection direction);
 
+    /**
+     * By using the standby bit the IC can be switched into a low current Standby mode. In
+     * Standby mode the IC must be in the WRITE mode. When the IC is switched to READ
+     * mode, during standby, the IC will hold the data line down. The standby current can be
+     * reduced by deactivating the bus interface (pin BUSENABLE LOW). If the bus interface is
+     * deactivated (pin BUSENABLE LOW) without the Standby mode being programmed, the
+     * IC maintains normal operation, but is isolated from the clock and data line.
+     *
+     * @param   standby
+     *          Whether to activate or deactivate standby mode.
+     */
     void setStandby(bool standby);
 
     void setSearchStopLevel(SearchStopLevel level);
 
     SearchStopLevel getSearchStopLevel();
 
-    void startSearchMode();
+    unsigned char getSignalLevel();
 
-    void stopSearchMode();
+    bool isBandLimitReached();
+
+    bool isReady();
+
+    float getFoundStation();
+
+    long getFoundStationFrequency();
 
     void setSearchMode(bool mode);
 
+    /**
+     * To perform an autonomous search, MUTE and SEARCH bits should be set. At the same time the current
+     * frequency has to be increased or decreased with one grid step.
+     */
+    long searchNextFrequency();
+
     void setSideInjection(SideInjection level);
+
+    void autoAjustSideInjection();
 
     void setRawConfiguration(unsigned char *buf);
 
+    long stationToFrequency(float station);
+
+    float frequencyToStation(long frequency);
+
 private:
+
+    long phaseLockedLoopToFrequency(unsigned int phaseLockedLoop);
+
+    unsigned int frequencyToPhaseLockedLoop(long frequency);
 
     void applyFrequency();
 
