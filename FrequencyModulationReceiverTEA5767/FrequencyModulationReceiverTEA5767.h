@@ -1,22 +1,28 @@
 /**
- * Arduino - Radio Receiver
+ * Arduino - Frequency Modulation Receiver
  *
  * @author Dalmir da Silva <dalmirdasilva@gmail.com>
  */
 
-#ifndef __ARDUINO_RADIO_RECEIVER_TEA5767_H__
-#define __ARDUINO_RADIO_RECEIVER_TEA5767_H__ 1
+#ifndef __ARDUINO_FREQUENCY_MODULATION_RECEIVER_TEA5767_H__
+#define __ARDUINO_FREQUENCY_MODULATION_RECEIVER_TEA5767_H__ 1
 
-#include <RadioReceiver.h>
+#include <FrequencyModulationReceiver.h>
+#include <stdint.h>
 
-#define RADIO_RECEIVER_TEA5767_I2C_ADDRESS      0x60
-#define RADIO_RECEIVER_TEA5767_REF_FREQ         32768
-#define RADIO_RECEIVER_TEA5767_INT_FREQ         225000
-#define RADIO_RECEIVER_TEA5767_BYTES_COUNT      5
-#define RADIO_RECEIVER_TEA5767_STATION_TO_FREQ  1000000.0
-#define RADIO_RECEIVER_TEA5767_ONE_GRID_STEP    RADIO_RECEIVER_TEA5767_STATION_TO_FREQ * 0.1
+#define TEA5767_I2C_ADDRESS      0x60
+#define TEA5767_REF_FREQ         32768.0
+#define TEA5767_INT_FREQ         225000.0
+#define TEA5767_BYTES_COUNT      5
+#define TEA5767_STATION_TO_FREQ  1000000.0
 
-class RadioReceiverTEA5767: public RadioReceiver {
+// Because the tuning system is internally provided with 100kHz grid step, care should be taken when the tuner is
+// clocked with the 32768Hz reference frequency. The grid step is then 98.304kHz (3*32768Hz).
+// In that case, when performing a search and a station is found, the PLL word of the programmable divider will
+// be read. The value of this word will be rounded and sent back to the tuner.
+#define TEA5767_ONE_GRID_STEP    98304.0
+
+class FrequencyModulationReceiverTEA5767: public FrequencyModulationReceiver {
 
     union Write1stBits {
 
@@ -200,7 +206,7 @@ class RadioReceiverTEA5767: public RadioReceiver {
     Read5thBits r5th;
 public:
 
-    RadioReceiverTEA5767();
+    FrequencyModulationReceiverTEA5767();
 
     void initialize();
 
@@ -214,7 +220,7 @@ public:
 
     void setStereo(bool stereo);
 
-    bool getStereo();
+    bool isStereo();
 
     void mute();
 
@@ -240,6 +246,8 @@ public:
      *          Whether to activate or deactivate standby mode.
      */
     void setStandby(bool standby);
+
+    bool isStandby();
 
     void setSearchStopLevel(SearchStopLevel level);
 
@@ -286,4 +294,4 @@ private:
     void flush();
 };
 
-#endif // __ARDUINO_RADIO_RECEIVER_TEA5767_H__
+#endif // __ARDUINO_FREQUENCY_MODULATION_RECEIVER_TEA5767_H__

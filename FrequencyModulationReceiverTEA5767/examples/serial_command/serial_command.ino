@@ -1,7 +1,8 @@
-#include <RadioReceiverTEA5767.h>
+#include <FrequencyModulationReceiverTEA5767.h>
 #include <Arduino.h>
 
-RadioReceiverTEA5767 receiver;
+FrequencyModulationReceiverTEA5767 receiver;
+
 float stations[] = {107.1, 95.9, 95.9};
 
 void printHelp() {
@@ -24,7 +25,7 @@ void setup() {
     Serial.begin(9600);
     Serial.println("Initializing radio...");
     receiver.initialize();
-    receiver.setSearchStopLevel(RadioReceiverTEA5767::SSL_MID);
+    receiver.setSearchStopLevel(FrequencyModulationReceiverTEA5767::SSL_MID);
     receiver.setStation(stations[0]);
     printHelp();
     Serial.println("Done.");
@@ -49,16 +50,16 @@ void loop() {
             receiver.setStandby(standby = !standby);
             break;
         case 'h':
-            receiver.setSideInjection(RadioReceiverTEA5767::SI_HIGH);
+            receiver.setSideInjection(FrequencyModulationReceiverTEA5767::SI_HIGH);
             break;
         case 'l':
-            receiver.setSideInjection(RadioReceiverTEA5767::SI_LOW);
+            receiver.setSideInjection(FrequencyModulationReceiverTEA5767::SI_LOW);
             break;
         case 'a':
             receiver.autoAjustSideInjection();
             break;
         case 'D':
-            receiver.setSearchDirection(RadioReceiverTEA5767::SD_DOWN);
+            receiver.setSearchDirection(FrequencyModulationReceiverTEA5767::SD_DOWN);
             receiver.searchNextFrequency();
             nextFrequency = receiver.searchNextFrequency();
             if (nextFrequency > 0) {
@@ -67,7 +68,7 @@ void loop() {
             Serial.println(receiver.frequencyToStation(nextFrequency));
             break;
         case 'U':
-            receiver.setSearchDirection(RadioReceiverTEA5767::SD_UP);
+            receiver.setSearchDirection(FrequencyModulationReceiverTEA5767::SD_UP);
             nextFrequency = receiver.searchNextFrequency();
             if (nextFrequency > 0) {
                 receiver.setFrequency(nextFrequency);

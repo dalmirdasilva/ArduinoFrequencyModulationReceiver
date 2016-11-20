@@ -4,10 +4,10 @@
  * @author Dalmir da Silva <dalmirdasilva@gmail.com>
  */
 
-#ifndef __ARDUINO_RADIO_RECEIVER_H__
-#define __ARDUINO_RADIO_RECEIVER_H__ 1
+#ifndef __ARDUINO_FREQUENCY_MODULATION_RECEIVER_H__
+#define __ARDUINO_FREQUENCY_MODULATION_RECEIVER_H__ 1
 
-class RadioReceiver {
+class FrequencyModulationReceiver {
 
 public:
 
@@ -33,9 +33,9 @@ public:
         SSL_HIGH = 0x03
     };
 
-    RadioReceiver();
+    FrequencyModulationReceiver();
 
-    virtual ~RadioReceiver();
+    virtual ~FrequencyModulationReceiver();
 
     virtual void setFrequency(long frequency) = 0;
 
@@ -47,7 +47,7 @@ public:
 
     virtual void setStereo(bool stereo) = 0;
 
-    virtual bool getStereo() = 0;
+    virtual bool isStereo() = 0;
 
     virtual void mute(Side size) = 0;
 
@@ -56,6 +56,8 @@ public:
     virtual void setSearchDirection(SerachDirection direction) = 0;
 
     virtual void setStandby(bool standby) = 0;
+
+    virtual bool isStandby() = 0;
 
     virtual void setSearchStopLevel(SearchStopLevel level) = 0;
 
@@ -74,4 +76,4 @@ public:
     virtual long getFoundStationFrequency() = 0;
 };
 
-#endif // __ARDUINO_RADIO_RECEIVER_H__
+#endif // __ARDUINO_FREQUENCY_MODULATION_RECEIVER_H__
