@@ -53,6 +53,10 @@ public:
 
     virtual void unmute(Side size) = 0;
 
+    virtual void setSoftmute(bool softmute) = 0;
+
+    virtual bool isSoftmute() = 0;
+
     virtual void setSearchDirection(SerachDirection direction) = 0;
 
     virtual void setStandby(bool standby) = 0;
@@ -71,9 +75,11 @@ public:
 
     virtual bool isBandLimitReached() = 0;
 
-    virtual bool isReady() = 0;
+    virtual bool searchFinished() = 0;
 
     virtual long getFoundStationFrequency() = 0;
+
+    virtual unsigned char getIntermediateFrequency() = 0;
 };
 
 #endif // __ARDUINO_FREQUENCY_MODULATION_RECEIVER_H__

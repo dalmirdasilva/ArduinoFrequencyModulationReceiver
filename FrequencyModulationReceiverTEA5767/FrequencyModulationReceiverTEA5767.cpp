@@ -14,6 +14,11 @@ void FrequencyModulationReceiverTEA5767::initialize() {
 }
 
 void FrequencyModulationReceiverTEA5767::setFrequency(long frequency) {
+    if (frequency < TEA5767_LOW_BAND_LIMIT_FREQ) {
+        frequency = TEA5767_LOW_BAND_LIMIT_FREQ;
+    } else if (frequency > TEA5767_HIGH_BAND_LIMIT_FREQ) {
+        frequency = TEA5767_HIGH_BAND_LIMIT_FREQ;
+    }
     this->frequency = frequency;
     applyFrequency();
     autoAjustSideInjection();
@@ -37,7 +42,8 @@ void FrequencyModulationReceiverTEA5767::setStereo(bool stereo) {
 }
 
 bool FrequencyModulationReceiverTEA5767::isStereo() {
-    return w3rd.MS;
+    read();
+    return r3rd.STEREO;
 }
 
 void FrequencyModulationReceiverTEA5767::mute() {
@@ -56,19 +62,13 @@ void FrequencyModulationReceiverTEA5767::unmute(Side side) {
     setMute(side, 0);
 }
 
-void FrequencyModulationReceiverTEA5767::setMute(Side side, bool mute) {
-    switch (side) {
-    case SIDE_LEFT:
-        w3rd.ML = mute;
-        break;
-    case SIDE_RIGHT:
-        w3rd.MR = mute;
-        break;
-    case SIDE_BOTH:
-        w1st.MUTE = mute;
-        break;
-    }
+void FrequencyModulationReceiverTEA5767::setSoftmute(bool softmute) {
+    w4th.SMUTE = softmute;
     flush();
+}
+
+bool FrequencyModulationReceiverTEA5767::isSoftmute() {
+    return w4th.SMUTE;
 }
 
 void FrequencyModulationReceiverTEA5767::setSearchDirection(SerachDirection direction) {
@@ -110,11 +110,12 @@ long FrequencyModulationReceiverTEA5767::searchNextFrequency() {
     mute();
     setFrequency(frequency + oneGridStep);
     setSearchMode(true);
-    while (!isReady())
+    while (!searchFinished())
         ;
     if (!isBandLimitReached()) {
         nextFrequency = getFoundStationFrequency();
     }
+    setSearchMode(false);
     setFrequency(frequency - oneGridStep);
     unmute();
     return nextFrequency;
@@ -140,7 +141,7 @@ bool FrequencyModulationReceiverTEA5767::isBandLimitReached() {
     return r1st.BLF;
 }
 
-bool FrequencyModulationReceiverTEA5767::isReady() {
+bool FrequencyModulationReceiverTEA5767::searchFinished() {
     read();
     return r1st.RF;
 }
@@ -155,6 +156,13 @@ long FrequencyModulationReceiverTEA5767::getFoundStationFrequency() {
     phaseLockedLoop <<= 8;
     phaseLockedLoop |= r2nd.PLL;
     return phaseLockedLoopToFrequency(phaseLockedLoop);
+}
+
+unsigned char FrequencyModulationReceiverTEA5767::getIntermediateFrequency() {
+    flush();
+    delay(TEA5767_IF_LOAD_DELAY_MS);
+    read();
+    return r3rd.IF;
 }
 
 void FrequencyModulationReceiverTEA5767::setRawConfiguration(unsigned char *buf) {
@@ -173,12 +181,29 @@ float FrequencyModulationReceiverTEA5767::frequencyToStation(long frequency) {
     return frequency / TEA5767_STATION_TO_FREQ;
 }
 
+void FrequencyModulationReceiverTEA5767::setMute(Side side, bool mute) {
+    switch (side) {
+    case SIDE_LEFT:
+        w3rd.ML = mute;
+        break;
+    case SIDE_RIGHT:
+        w3rd.MR = mute;
+        break;
+    case SIDE_BOTH:
+        w1st.MUTE = mute;
+        break;
+    }
+    flush();
+}
+
 long FrequencyModulationReceiverTEA5767::phaseLockedLoopToFrequency(unsigned int phaseLockedLoop) {
-    return (phaseLockedLoop * TEA5767_REF_FREQ) / 4 - TEA5767_INT_FREQ;
+    long intFreq = (w3rd.HLSI) ? TEA5767_INT_FREQ : -(TEA5767_INT_FREQ);
+    return (phaseLockedLoop * TEA5767_REF_FREQ) / 4 - intFreq;
 }
 
 unsigned int FrequencyModulationReceiverTEA5767::frequencyToPhaseLockedLoop(long frequency) {
-    return 4 * (frequency + TEA5767_INT_FREQ) / TEA5767_REF_FREQ;
+    long intFreq = (w3rd.HLSI) ? TEA5767_INT_FREQ : -(TEA5767_INT_FREQ);
+    return 4 * (frequency + intFreq) / TEA5767_REF_FREQ;
 }
 
 void FrequencyModulationReceiverTEA5767::applyFrequency() {
@@ -196,7 +221,7 @@ void FrequencyModulationReceiverTEA5767::read() {
             *input[i] = Wire.read();
         }
     }
-    delay(10);
+    delay(50);
 }
 
 void FrequencyModulationReceiverTEA5767::flush() {
@@ -206,5 +231,5 @@ void FrequencyModulationReceiverTEA5767::flush() {
         Wire.write(output[i]);
     }
     Wire.endTransmission();
-    delay(10);
+    delay(50);
 }

@@ -10,11 +10,14 @@
 #include <FrequencyModulationReceiver.h>
 #include <stdint.h>
 
-#define TEA5767_I2C_ADDRESS      0x60
-#define TEA5767_REF_FREQ         32768.0
-#define TEA5767_INT_FREQ         225000.0
-#define TEA5767_BYTES_COUNT      5
-#define TEA5767_STATION_TO_FREQ  1000000.0
+#define TEA5767_I2C_ADDRESS             0x60
+#define TEA5767_REF_FREQ                32768.0
+#define TEA5767_INT_FREQ                225000.0
+#define TEA5767_BYTES_COUNT             5
+#define TEA5767_STATION_TO_FREQ         1000000.0
+#define TEA5767_IF_LOAD_DELAY_MS        27
+#define TEA5767_LOW_BAND_LIMIT_FREQ     87.5 * TEA5767_STATION_TO_FREQ
+#define TEA5767_HIGH_BAND_LIMIT_FREQ    108  * TEA5767_STATION_TO_FREQ
 
 // Because the tuning system is internally provided with 100kHz grid step, care should be taken when the tuner is
 // clocked with the 32768Hz reference frequency. The grid step is then 98.304kHz (3*32768Hz).
@@ -230,7 +233,15 @@ public:
 
     void unmute(Side side);
 
-    void setMute(Side side, bool mute);
+    /**
+     * The RF input signal can come under weak level input so that the total noise energy in the AF spectrum can be
+     * larger than the AF signal. This causes an unpleasant sound. When activated, the softmute will limit the amount
+     * of noise energy in the AF spectrum. The inter-station noise is then attenuated which will result in a better
+     * perception of the audio signal.
+     */
+    void setSoftmute(bool softmute);
+
+    bool isSoftmute();
 
     void setSearchDirection(SerachDirection direction);
 
@@ -257,11 +268,17 @@ public:
 
     bool isBandLimitReached();
 
-    bool isReady();
+    bool searchFinished();
 
     float getFoundStation();
 
     long getFoundStationFrequency();
+
+    /**
+     * Because the IF counter is not automatically updated, each time a read action is required, a previous write action must be performed.
+     * After a write operation the result will be ready after 27ms. Wait until the result is available for the bus.
+     */
+    unsigned char getIntermediateFrequency();
 
     void setSearchMode(bool mode);
 
@@ -282,6 +299,8 @@ public:
     float frequencyToStation(long frequency);
 
 private:
+
+    void setMute(Side side, bool mute);
 
     long phaseLockedLoopToFrequency(unsigned int phaseLockedLoop);
 
