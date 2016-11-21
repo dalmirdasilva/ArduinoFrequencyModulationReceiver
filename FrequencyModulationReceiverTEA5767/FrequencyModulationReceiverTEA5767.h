@@ -119,7 +119,7 @@ class FrequencyModulationReceiverTEA5767: public FrequencyModulationReceiver {
             // Not used; position is don’t care.
             unsigned char :5;
 
-            // If DTC = 1 then the de-emphasis time constant is 75 μs; if DTC = 0 then the de-emphasis time constant is 50 μs.
+            // If DTC = 1 then the de-emphasis time constant is 75 us; if DTC = 0 then the de-emphasis time constant is 50 us.
             unsigned char DTC :1;
 
             // If PLLREF = 1 then the 6.5 MHz reference frequency for the PLL is enabled;
